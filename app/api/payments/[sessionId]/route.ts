@@ -21,26 +21,24 @@ async function settle(sessionId: string) {
     // No chain in mock: treat verify as the confirmation signal.
     matchedTxId = `mock_${randomBytes(6).toString("hex")}`;
   } else {
-    const txs = await getPaymentsAdapter().listTransactions();
-    const candidates = txs.filter(
-      (t) =>
-        (t.memo?.includes(sessionId) ||
-          Number(t.amount) === Number(session.amount)) &&
-        /confirmed|success|recorded/i.test(t.status)
-    );
-    // Dedupe: never consume an on-chain tx already linked to a transaction.
-    let hit: (typeof candidates)[number] | undefined;
-    for (const c of candidates) {
-      const used = await prisma.transaction.findFirst({
-        where: { externalTransactionId: c.id }
-      });
-      if (!used) {
-        hit = c;
-        break;
-      }
+    // Real: reconcile against the Locus Checkout session status.
+    if (!session.externalSessionId) {
+      return { status: "pending" as const, code: 200 };
     }
-    if (!hit) return { status: "pending" as const, code: 200 };
-    matchedTxId = hit.id;
+    const result = await getPaymentsAdapter().getCheckoutSessionStatus({
+      externalSessionId: session.externalSessionId
+    });
+    if (result.status !== "paid") {
+      return { status: "pending" as const, code: 200 };
+    }
+    // Dedupe: never consume a settlement already linked to a transaction.
+    const used = await prisma.transaction.findFirst({
+      where: { externalTransactionId: result.externalTransactionId }
+    });
+    if (used) {
+      return { status: "paid" as const, code: 200 };
+    }
+    matchedTxId = result.externalTransactionId;
   }
 
   const ts = new Date().toISOString();

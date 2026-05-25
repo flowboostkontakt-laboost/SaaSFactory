@@ -96,6 +96,15 @@ export interface PaymentsAdapter {
       occurredAt: string;
     }[]
   >;
+
+  /**
+   * Reconciliation against Locus Checkout: settlement status of a hosted
+   * checkout session. status is normalized to
+   * `paid | pending | expired | cancelled | not_found`.
+   */
+  getCheckoutSessionStatus(input: {
+    externalSessionId: string;
+  }): Promise<{ status: string; externalTransactionId: string }>;
 }
 
 export type AdapterDriver = "mock" | "real";

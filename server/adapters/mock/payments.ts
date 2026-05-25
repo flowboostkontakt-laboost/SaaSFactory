@@ -50,4 +50,12 @@ export class MockPaymentsAdapter implements PaymentsAdapter {
       occurredAt: string;
     }[];
   }
+
+  // Mock checkout always reports paid so the verify flow settles instantly.
+  async getCheckoutSessionStatus(input: { externalSessionId: string }) {
+    return {
+      status: "paid",
+      externalTransactionId: `mock_sess_${input.externalSessionId}`
+    };
+  }
 }

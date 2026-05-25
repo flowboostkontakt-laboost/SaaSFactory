@@ -20,12 +20,26 @@ function authHeaders() {
 }
 
 // Real Locus integration over the verified beta agent API.
-// Note: the Locus agent API exposes the agent as a PAYER (wallet, send,
-// balance, transactions, checkout pay) but does not document a merchant
-// "create checkout session" endpoint. provisionSubWallet maps to the single
-// agent wallet; createCheckoutSession is intentionally unsupported until the
-// monetization model is decided (see Phase 4 note).
+// Monetization model: Locus Checkout (Stripe-style hosted sessions). The
+// micro-SaaS acts as the MERCHANT: it mints a real checkout session
+// (`POST /checkout/sessions`) that returns a hosted pay page; settlement is
+// reconciled by polling the session status (`GET /checkout/sessions/:id`).
+// provisionSubWallet maps to the single agent wallet (per-project balances
+// are tracked logically and swept by the treasury).
 export class RealPaymentsAdapter implements PaymentsAdapter {
+  private async walletAddress(): Promise<string> {
+    const res = await fetchRetry(`${base()}/pay/balance`, {
+      headers: authHeaders()
+    });
+    if (!res.ok) {
+      throw new Error(`Locus wallet lookup ${res.status}`);
+    }
+    const json = (await res.json()) as {
+      data?: { wallet_address?: string };
+    };
+    return json.data?.wallet_address ?? "";
+  }
+
   async getBalance(input: { externalWalletId: string }) {
     void input;
     const res = await fetchRetry(`${base()}/pay/balance`, {
@@ -44,16 +58,7 @@ export class RealPaymentsAdapter implements PaymentsAdapter {
   }
 
   async provisionSubWallet(input: { projectId: string }) {
-    const res = await fetchRetry(`${base()}/pay/balance`, {
-      headers: authHeaders()
-    });
-    if (!res.ok) {
-      throw new Error(`Locus wallet lookup ${res.status}`);
-    }
-    const json = (await res.json()) as {
-      data?: { wallet_address?: string };
-    };
-    const address = json.data?.wallet_address ?? "";
+    const address = await this.walletAddress();
     // The agent has one wallet; per-project sub-wallets are logical.
     return {
       subWalletId: `locus_${input.projectId}`,
@@ -62,9 +67,9 @@ export class RealPaymentsAdapter implements PaymentsAdapter {
     };
   }
 
-  // Model (a): no Locus merchant session endpoint exists for agents, so the
-  // buyer pays by USDC transfer to the agent wallet with the session id as
-  // memo; we reconcile from /pay/transactions.
+  // Locus Checkout: create a real hosted checkout session. The buyer pays at
+  // the returned `checkoutUrl` (human wallet) or an agent settles it via
+  // `POST /checkout/agent/pay/:id`. Reconciled by getCheckoutSessionStatus.
   async createCheckoutSession(input: {
     projectId: string;
     pricingKey: string;
@@ -73,23 +78,69 @@ export class RealPaymentsAdapter implements PaymentsAdapter {
     successUrl: string;
     cancelUrl: string;
   }) {
-    void input.pricingKey;
-    void input.cancelUrl;
-    const res = await fetchRetry(`${base()}/pay/balance`, {
-      headers: authHeaders()
+    const payload = {
+      amount: input.amount,
+      currency: input.currency || "USDC",
+      description: `SaaS-Factory micro-SaaS access (${input.pricingKey})`,
+      successUrl: input.successUrl,
+      cancelUrl: input.cancelUrl,
+      metadata: { projectId: input.projectId, pricingKey: input.pricingKey }
+    };
+    const res = await fetchRetry(`${base()}/checkout/sessions`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(payload)
     });
     if (!res.ok) {
-      throw new Error(`Locus wallet lookup ${res.status}`);
+      throw new Error(`Locus checkout create ${res.status}`);
     }
     const json = (await res.json()) as {
-      data?: { wallet_address?: string };
+      data?: { id?: string; checkoutUrl?: string; status?: string };
     };
-    const payToAddress = json.data?.wallet_address ?? "";
+    const data = json.data ?? {};
+    let payToAddress = "";
+    try {
+      payToAddress = await this.walletAddress();
+    } catch {
+      payToAddress = "";
+    }
     return {
-      externalSessionId: "",
-      checkoutUrl: input.successUrl,
-      status: "created",
+      externalSessionId: data.id ?? "",
+      checkoutUrl: data.checkoutUrl ?? input.successUrl,
+      status: (data.status ?? "PENDING").toLowerCase(),
       payToAddress
+    };
+  }
+
+  async getCheckoutSessionStatus(input: { externalSessionId: string }) {
+    if (!input.externalSessionId) {
+      return { status: "not_found", externalTransactionId: "" };
+    }
+    const res = await fetchRetry(
+      `${base()}/checkout/sessions/${encodeURIComponent(input.externalSessionId)}`,
+      { headers: authHeaders() }
+    );
+    if (res.status === 404) {
+      return { status: "not_found", externalTransactionId: "" };
+    }
+    if (!res.ok) {
+      throw new Error(`Locus session status ${res.status}`);
+    }
+    const json = (await res.json()) as {
+      data?: { id?: string; status?: string };
+    };
+    const raw = (json.data?.status ?? "").toUpperCase();
+    const status =
+      raw === "PAID"
+        ? "paid"
+        : raw === "EXPIRED"
+          ? "expired"
+          : raw === "CANCELLED"
+            ? "cancelled"
+            : "pending";
+    return {
+      status,
+      externalTransactionId: `locus_sess_${json.data?.id ?? input.externalSessionId}`
     };
   }
 
