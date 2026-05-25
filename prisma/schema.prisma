@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Field names mirror types/domain.ts so repositories map 1:1.
+// Money and timestamps are stored as strings to match the domain model.
+
+model Project {
+  id                String   @id
+  name              String
+  slug              String
+  prompt            String
+  status            String
+  templateType      String
+  liveUrl           String
+  repoUrl           String
+  vercelProjectId   String
+  subWalletId       String
+  revenueUsdc       String
+  lastTransactionAt String
+  sunsetAt          String
+  createdAt         String
+  updatedAt         String
+}
+
+model ProjectRun {
+  id               String  @id
+  projectId        String
+  triggerType      String
+  currentStage     String
+  stageStatus      String
+  architectOutput  String
+  developerOutput  String
+  deploymentOutput String
+  errorMessage     String?
+  startedAt        String
+  finishedAt       String?
+
+  @@index([projectId])
+}
+
+model PaymentSession {
+  id                String @id
+  projectId         String
+  externalSessionId String
+  pricingKey        String
+  amount            String
+  currency          String
+  status            String
+  checkoutUrl       String
+  createdAt         String
+  updatedAt         String
+
+  @@index([projectId])
+}
+
+model Wallet {
+  id               String  @id
+  walletType       String
+  projectId        String?
+  externalWalletId String
+  address          String
+  balance          String
+  currency         String
+  lastSyncedAt     String
+
+  @@index([projectId])
+}
+
+model Transaction {
+  id                    String  @id
+  projectId             String
+  walletId              String
+  paymentSessionId      String?
+  externalTransactionId String
+  transactionType       String
+  amount                String
+  currency              String
+  status                String
+  occurredAt            String
+  metadata              Json
+
+  @@index([projectId])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
+
+model ProjectArtifact {
+  projectId String @id
+  html      String
+  createdAt String
+}
+
+model Deployment {
+  id                   String @id
+  projectId            String
+  provider             String
+  environment          String
+  externalDeploymentId String
+  deploymentUrl        String
+  status               String
+  createdAt            String
+
+  @@index([projectId])
+}

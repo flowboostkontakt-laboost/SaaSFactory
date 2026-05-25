@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/internal/pipeline/tick", "schedule": "* * * * *" },
+    { "path": "/api/internal/treasury/sync", "schedule": "*/10 * * * *" },
+    { "path": "/api/internal/sunset/run", "schedule": "*/15 * * * *" }
+  ]
+}

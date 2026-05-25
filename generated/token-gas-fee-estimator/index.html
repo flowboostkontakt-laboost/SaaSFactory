@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Token Gas Fee Estimator</title>
+<style>
+  :root{--bg:#060608;--card:#0c0c12;--line:#ffffff1a;--ink:#f3f4f8;--mut:#a5a6bd;--faint:#6c6d85;--v:#7c5cff;--a:#22d3c5}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:60rem;margin:0 auto;padding:clamp(1.5rem,5vw,4rem)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:3rem}
+  .brand{display:flex;align-items:center;gap:.55rem;font-weight:600;letter-spacing:-.02em}
+  .dot{width:.5rem;height:.5rem;border-radius:999px;background:var(--v)}
+  .tag{font-size:.7rem;text-transform:uppercase;letter-spacing:.24em;color:var(--faint)}
+  h1{font-size:clamp(2.2rem,5vw,3.4rem);line-height:1.03;letter-spacing:-.03em;margin:.6rem 0 .8rem}
+  .sub{color:var(--mut);max-width:42ch;line-height:1.6}
+  .grid{display:grid;gap:1.25rem;margin-top:2.5rem;grid-template-columns:1fr}
+  @media(min-width:820px){.grid{grid-template-columns:1.05fr .95fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:1.75rem}
+  label{display:block;font-size:.8rem;color:var(--mut);margin:1rem 0 .4rem;text-transform:uppercase;letter-spacing:.14em}
+  label:first-child{margin-top:0}
+  input,select{width:100%;background:#06060880;border:1px solid var(--line);border-radius:14px;padding:.8rem 1rem;color:var(--ink);font-size:1rem;outline:none}
+  input:focus,select:focus{border-color:#7c5cff80}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+  .out{display:flex;flex-direction:column;gap:1rem}
+  .stat{border:1px solid var(--line);border-radius:18px;padding:1.1rem 1.25rem;background:#ffffff05}
+  .stat .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.18em;color:var(--faint)}
+  .stat .v{font-size:1.9rem;font-weight:600;letter-spacing:-.02em;margin-top:.35rem}
+  .v .u{font-size:.9rem;color:var(--mut);margin-left:.4rem;font-weight:500}
+  .aqua{color:var(--a)}
+  .lock{position:relative;overflow:hidden}
+  .lock.locked .veil{display:flex}
+  .veil{display:none;position:absolute;inset:0;background:#060608cc;backdrop-filter:blur(6px);align-items:center;justify-content:center;flex-direction:column;gap:1rem;text-align:center;padding:1.5rem}
+  .pay{border:0;border-radius:999px;background:var(--v);color:#fff;font-weight:600;font-size:.95rem;padding:.85rem 1.6rem;cursor:pointer;transition:.2s}
+  .pay:hover{filter:brightness(1.1)}
+  .price{font-size:.8rem;color:var(--mut)}
+  footer{margin-top:3rem;color:var(--faint);font-size:.8rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+  a{color:var(--a);text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="dot"></span> Token Gas Fee Estimator</div>
+    <span class="tag">Powered by SaaS-Factory.ai</span>
+  </header>
+
+  <h1>Estimate transaction gas fees in seconds.</h1>
+  <p class="sub">Enter network conditions and an action. Get the fee in Gwei, native token, and USD. Premium presets unlock with a single USDC payment.</p>
+
+  <div class="grid">
+    <div class="card">
+      <p class="tag">Tool interface</p>
+      <label for="gp">Gas price (Gwei)</label>
+      <input id="gp" type="number" value="12" min="0" step="0.1" />
+      <div class="row">
+        <div>
+          <label for="act">Action</label>
+          <select id="act">
+            <option value="21000">Native transfer (21,000)</option>
+            <option value="65000" selected>ERC-20 transfer (65,000)</option>
+            <option value="180000">DEX swap (180,000)</option>
+            <option value="custom">Custom limit…</option>
+          </select>
+        </div>
+        <div>
+          <label for="px">Token price (USD)</label>
+          <input id="px" type="number" value="3200" min="0" step="1" />
+        </div>
+      </div>
+      <div id="customWrap" style="display:none">
+        <label for="gl">Custom gas limit</label>
+        <input id="gl" type="number" value="120000" min="21000" step="1000" />
+      </div>
+    </div>
+
+    <div class="card lock locked" id="results">
+      <p class="tag">Results</p>
+      <div class="out" style="margin-top:1rem">
+        <div class="stat"><div class="k">Fee (Gwei)</div><div class="v" id="oGwei">—</div></div>
+        <div class="stat"><div class="k">Fee (token)</div><div class="v aqua" id="oEth">—</div></div>
+        <div class="stat"><div class="k">Fee (USD)</div><div class="v" id="oUsd">—</div></div>
+      </div>
+      <div class="veil" id="veil">
+        <p class="tag">Locus paywall</p>
+        <p style="font-size:1.4rem;font-weight:600">1 estimate = 1 USDC</p>
+        <button class="pay" id="payBtn">Pay with Locus</button>
+        <p class="price">Demo unlock — real Locus checkout wires in Phase 4.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Generated micro-SaaS · template: tool</span>
+    <a href="http://localhost:3000/dashboard">↗ Founder dashboard</a>
+  </footer>
+</div>
+
+<script>
+  var gp=document.getElementById('gp'),act=document.getElementById('act'),px=document.getElementById('px'),
+      gl=document.getElementById('gl'),cw=document.getElementById('customWrap'),
+      oGwei=document.getElementById('oGwei'),oEth=document.getElementById('oEth'),oUsd=document.getElementById('oUsd');
+
+  function limit(){return act.value==='custom'?(+gl.value||0):(+act.value||0);}
+  function calc(){
+    var price=+gp.value||0, lim=limit(), tok=+px.value||0;
+    var gwei=price*lim;                 // total fee in gwei
+    var eth=gwei/1e9;                    // native token units
+    var usd=eth*tok;
+    oGwei.innerHTML=gwei.toLocaleString()+'<span class="u">gwei</span>';
+    oEth.innerHTML=eth.toFixed(6)+'<span class="u">token</span>';
+    oUsd.innerHTML='$'+usd.toFixed(2)+'<span class="u">USD</span>';
+  }
+  act.addEventListener('change',function(){cw.style.display=act.value==='custom'?'block':'none';calc();});
+  [gp,px,gl].forEach(function(el){el.addEventListener('input',calc);});
+
+  document.getElementById('payBtn').addEventListener('click',function(){
+    this.textContent='Confirming on Locus…';
+    var self=this;
+    setTimeout(function(){
+      document.getElementById('results').classList.remove('locked');
+      self.textContent='Pay with Locus';
+      calc();
+    },900);
+  });
+  calc();
+</script>
+</body>
+</html>
