@@ -87,10 +87,8 @@ a{color:var(--a);text-decoration:none}
         <button class="pay" id="startPay">Pay with Locus</button>
       </div>
       <div id="payInstr" style="display:none">
-        <p class="hint">Send <strong id="amt"></strong> USDC on Base to:</p>
-        <div class="mono" id="addr"></div>
-        <p class="hint">memo / reference:</p>
-        <div class="mono" id="memo"></div>
+        <p class="hint">A secure Locus Checkout opened in a new tab. Connect your wallet and pay <strong id="amt"></strong> USDC on Base.</p>
+        <p class="hint"><a id="coLink" href="#" target="_blank" rel="noopener">Reopen Locus Checkout ↗</a></p>
         <button class="pay" id="verify" style="margin-top:.6rem">I've paid — verify</button>
         <div class="hint" id="vstatus" style="margin-top:.5rem"></div>
       </div>
@@ -112,10 +110,10 @@ document.getElementById('startPay').onclick=async function(){
     var d=await r.json();
     SID=d.sessionId;
     document.getElementById('amt').textContent=d.amount;
-    document.getElementById('addr').textContent=d.payToAddress;
-    document.getElementById('memo').textContent=d.memo;
+    document.getElementById('coLink').href=d.checkoutUrl;
     document.getElementById('payInit').style.display='none';
     document.getElementById('payInstr').style.display='block';
+    window.open(d.checkoutUrl,'_blank','noopener');
   }catch(e){this.disabled=false;this.textContent='Pay with Locus';alert('Could not start payment');}
 };
 document.getElementById('verify').onclick=async function(){
@@ -124,7 +122,7 @@ document.getElementById('verify').onclick=async function(){
     var r=await fetch(C.baseUrl+'/api/payments/'+SID,{method:'POST'});
     var d=await r.json();
     if(d.status==='paid'){document.getElementById('res').classList.remove('locked');}
-    else{s.textContent='Not detected yet ('+(d.status||'pending')+'). Send the USDC, then verify again.';}
+    else{s.textContent='Not confirmed yet ('+(d.status||'pending')+'). Finish paying in the Locus tab, then verify again.';}
   }catch(e){s.textContent='Verification failed, try again.';}
 };
 </script>
