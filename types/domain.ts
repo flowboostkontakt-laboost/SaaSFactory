@@ -119,6 +119,7 @@ export interface Deployment {
 
 export interface TreasurySummary {
   globalTreasuryUsdc: string;
+  reserveUsdc: string;
   activeProjects: number;
   sunsetPendingProjects: number;
   wallets: Wallet[];

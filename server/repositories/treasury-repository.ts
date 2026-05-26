@@ -15,6 +15,7 @@ export class TreasuryRepository {
 
     return {
       globalTreasuryUsdc: total.toFixed(2),
+      reserveUsdc: Number(process.env.TREASURY_RESERVE_USDC ?? "1.00").toFixed(2),
       activeProjects,
       sunsetPendingProjects,
       wallets: wallets as unknown as Wallet[]

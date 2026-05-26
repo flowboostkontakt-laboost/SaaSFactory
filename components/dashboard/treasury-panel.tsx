@@ -4,6 +4,7 @@ import type { TreasurySummary } from "@/types/domain";
 const spark = [38, 52, 44, 67, 58, 79, 71];
 
 export function TreasuryPanel({ summary }: { summary: TreasurySummary }) {
+  const funding = Number(summary.globalTreasuryUsdc) >= Number(summary.reserveUsdc);
   return (
     <section className="relative overflow-hidden rounded-[28px] border border-violet/25 bg-charcoal-900/70 p-7 backdrop-blur-xl">
       <div
@@ -41,6 +42,39 @@ export function TreasuryPanel({ summary }: { summary: TreasurySummary }) {
           </span>{" "}
           sunset pending
         </span>
+      </div>
+
+      {/* Reserve guard: the foundry only builds what it can afford. */}
+      <div
+        className={`relative mt-6 flex items-center justify-between gap-4 rounded-[20px] border p-4 ${
+          funding
+            ? "border-aqua/30 bg-aqua/[0.06]"
+            : "border-rose-500/30 bg-rose-500/[0.06]"
+        }`}
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                funding ? "animate-pulse bg-aqua" : "bg-rose-400"
+              }`}
+            />
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-offwhite">
+              Reserve guard
+            </p>
+          </div>
+          <p className="mt-1.5 text-xs text-offwhite-muted">
+            {funding
+              ? "Funding new builds"
+              : "Builds paused — protecting reserve"}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-offwhite-faint">Reserve floor</p>
+          <p className="text-sm font-semibold text-offwhite">
+            {formatUsdc(summary.reserveUsdc)}
+          </p>
+        </div>
       </div>
 
       <div className="relative mt-6 space-y-3">
